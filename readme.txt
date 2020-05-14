@@ -12,10 +12,11 @@ Options:
       armv4, armv5, armv6, armv6hf, armv7, armv7hf, aarch64,
       ppc, ppc64,
       alpha
-  --bootloader uefi-refind
+  --bootloader grub-efi
     Which bootloader to install on the boot device:
       bios-lilo
-      uefi-refind  default
+      uefi-refind  
+      grub-efi default
   -d, --destination /mnt/gentoo
     Install into this location. If a directory is provided, then install into
     that directory. If an empty block device is provided, then it will be
@@ -47,12 +48,13 @@ Options:
       stage3hash          default      Verify the hash
       stage3extract       default      Extract the stage 3 tarball
       stage3delete        default      Delete the stage 3 tarball
-      dynamictranslation  default      Enable dynamic translation if required
       resolvconf          default      Add default nameservers
+      dynamictranslation  default      Enable dynamic translation if required
       procsysdev          automatic    Mount proc, sys, and dev
       portage             default      Install Portage
       timezone            default      Set the timezone
       locale              default      Set the locale
+      network             default      Set the network & system tools
       kernel                           Install and compile the kernel
       fstab                            Add boot, root, and swap entries
       bootloader                       Configure and install a bootloader
@@ -62,7 +64,7 @@ Options:
     Install the latest portage snapshot or provide a URL to a different version.
   --stage3 latest
     Install the latest stage3 tarball or provide a URL to a different version.
-  -t, --timezone "UTC"
+  -t, --timezone "America/Lima"
     Which timezone to configure.
 
 Examples:
@@ -70,6 +72,8 @@ Examples:
   gentooinstall -p kernel,fstab,bootloader
 
 Version:
-  Gentoo Install 2.0.0.0
-  Copyright (C) 2016 Nathan Shearer
+  Gentoo Install 2.0.0.2020
+  Copyright (C) 2016 Nathan Shearer & Cesar Vergara
   Licensed under GNU General Public License 2.0
+  forked from https://github.com/nathanshearer/gentooinstall
+

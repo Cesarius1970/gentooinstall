@@ -1,0 +1,163 @@
+# EXERPTS - Guessing & draft document
+
+# Latest as of Wed, 13 May 2020 04:00:01 +0000
+# ts=1589342401
+# 20200422T214502Z/hardened/stage4-amd64-hardened+minimal-nomultilib-20200422T214502Z.tar.xz 229764448
+
+# USUARIO GLOBAL PARA SSH
+useradd -m -G users cesar
+usermod -a -G sudo cesar
+passwd cesar
+
+rc-service sshd start
+
+# CONFIG DE RED INALAMBRICA
+net-setup
+
+# ARREGLO DE LA HORA
+ntpd -q -g
+
+# PARTICIONADO y
+parted -a optimal /dev/nvme0n1
+mklabel gpt
+unit mib
+mkpart primary 1 3
+name 1 GRUB
+set 1 bios_grub on
+mkpart primary 3 131
+name 2 ESP
+mkpart primary 131 8223
+name 3 SWP
+mkpart primary 8223 -1
+name 4 ROOT
+set 2 boot on
+quit
+
+mkfs.vfat -F 32 /dev/nvme0n1p2
+mkfs.btrfs /dev/nvme0n1p4
+mksawp /dev/nvme0n1p3
+swapon /dev/nvme0n1p3
+mount /dev/nvme0n1p4
+
+# STAGE3
+tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner
+
+nano -w /mnt/gentoo/etc/portage/make.conf
+COMMON_FLAGS="-march=native -O2 -pipe"
+MAKEOPTS="-j8"
+USE="-gtk -gnome qt4 qt5 kde dvd alsa cdr"
+GRUB_PLATFORMS="efi-64"
+
+
+mirrorselect -i -o >> /mnt/gentoo/etc/portage/make.conf
+mkdir --parents /mnt/gentoo/etc/portage/repos.conf
+cp /mnt/gentoo/usr/share/portage/config/repos.conf /mnt/gentoo/etc/portage/repos.conf/gentoo.conf
+cp --dereference /etc/resolv.conf /mnt/gentoo/etc/
+
+# PROCSYSDEV
+mount --types proc /proc /mnt/gentoo/proc
+mount --rbind /sys /mnt/gentoo/sys
+mount --make-rslave /mnt/gentoo/sys
+mount --rbind /dev /mnt/gentoo/dev
+mount --make-rslave /mnt/gentoo/dev
+
+# CHROOT
+chroot /mnt/gentoo /bin/bash
+source /etc/profile
+export PS1="(chroot) ${PS1}"
+mount /dev/nvme0n1p2 /boot
+
+
+# PORTAGE
+emerge-webrsync
+emerge --sync
+eselect profile list
+eselect profile set ****
+emerge --ask --verbose --update --deep --newuse @world
+
+# TIMEZONE
+echo "America/Lima" > /etc/timezone
+emerge --config sys-libs/timezone-data
+
+# LOCALE
+echo "es_PE.UTF-8 UTF-8" > /etc/locale.gen
+echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+locale-gen
+eselect locale list
+eselect locale set 1
+env-update && source /etc/profile && export PS1="(chroot) ${PS1}"
+
+# KERNEL
+emerge --ask sys-apps/pciutils
+emerge --ask sys-kernel/gentoo-sources
+#cd /usr/src/linux
+#make menuconfig
+#make && make modules_install
+#make install
+emerge --ask sys-kernel/genkernel
+echo "/dev/nvme0n1p2	/boot/efi	vfat	umask=077	0 1" > /etc/fstab
+echo "/dev/nvme0n1p2   /boot/efi    vfat    umask=077     0 1" >> /etc/fstab
+echo "/dev/nvme0n1p3   none         swap    sw                   0 0" >> /etc/fstab
+echo "/dev/nvme0n1p4   /            btrfs   noatime,discard,subvol=@      0 1" >> /etc/fstab
+echo "/dev/nvme0n1p4   /home        btrfs   noatime,discard,subvol=@home      0 2" >> /etc/fstab
+genkernel all
+genkernel --install initramfs
+ls /boot/vmlinu* /boot/initramfs*
+emerge --ask sys-kernel/linux-firmware
+
+# find /lib/modules/<kernel version>/ -type f -iname '*.o' -or -iname '*.ko'
+mkdir -p /etc/modules-load.d
+# nano -w /etc/modules-load.d/network.conf
+
+#FSTAB
+blkid # Para vere los ID de los discos y particiones y usarkas en lugar del /dev directo
+
+/dev/nvme0n1p2   /boot/efi    vfat    umask=077     0 1
+/dev/nvme0n1p3   none         swap    sw                   0 0
+/dev/nvme0n1p4   /            btrfs   noatime,discard,subvol=@      0 1
+/dev/nvme0n1p4   /home        btrfs   noatime,discard,subvol=@home      0 2
+
+# NET CONFIG
+nano /etc/conf.d/hostname
+hostname="CVergara-Laptop"
+emerge --ask --noreplace net-misc/netifrc
+cd /etc/init.d
+ln -s net.lo net.eth0 net.wlsp0
+rc-update add net.eth0 default
+emerge --ask net-misc/dhcpcd
+emerge --ask net-wireless/iw net-wireless/wpa_supplicant
+
+nano /etc/hosts
+# This defines the current system and must be set
+127.0.0.1     CVergara-Laptop localhost
+
+nano -w /etc/rc.conf
+nano -w /etc/conf.d/keymaps
+nano -w /etc/conf.d/hwclock  # clock="local"
+
+# SYSTEM TOOLS
+emerge --ask app-admin/sysklogd
+rc-update add sysklogd default
+emerge --ask sys-process/cronie
+rc-update add cronie default
+crontab /etc/crontab
+
+emerge --ask sys-apps/mlocate
+
+rc-update add sshd default
+
+emerge --ask sys-fs/btrfs-progs
+
+# BOOT LOADER
+emerge --ask --verbose sys-boot/grub:2
+mount -o remount,rw /sys/firmware/efi/efivars
+grub-install /dev/nvme0n1
+grub-install --target=x86_64-efi --efi-directory=/boot/efi /dev/nvme0n1
+grub-mkconfig -o /boot/grub/grub.cfg
+
+# USER
+useradd -m -G users,wheel,audio,cdrom,floppy,video.usb,portage,games -s /bin/bash cesar
+
+
+
+
